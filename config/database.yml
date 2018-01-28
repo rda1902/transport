@@ -1,0 +1,16 @@
+default:
+  adapter: postgresql
+  host: localhost
+  username: pguser
+  pool: 5
+  timeout: 5000
+  password: fgio892der
+  
+production:
+  adapter: postgresql
+  host: localhost
+  username: pguser
+  pool: 5
+  timeout: 5000
+  password: fgio892der
+
