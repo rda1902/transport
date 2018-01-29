@@ -6,6 +6,7 @@ GEM
       i18n (~> 0.7)
       minitest (~> 5.1)
       tzinfo (~> 1.1)
+    colorize (0.8.1)
     concurrent-ruby (1.0.5)
     geocoder (1.4.5)
     i18n (0.9.3)
@@ -24,6 +25,7 @@ PLATFORMS
 
 DEPENDENCIES
   activesupport
+  colorize
   geocoder
   oj
   pg

@@ -27,6 +27,7 @@ class Estimate::TransportLogger
   end
 
   def run
+    old_positions = {}
     Estimate::TransportLogger::REDIS.flushdb
     loop do
       data = request_data
@@ -40,12 +41,12 @@ class Estimate::TransportLogger
       }
       puts Estimate::TransportFactory::TRANSPORT.size
       puts Estimate::TransportLogger::REDIS.keys.size
-      
+
 =begin
       puts 'bbox_include_points'
       puts Benchmark.measure {
         vehicles = {}
-        bbox = '59.951314019736735,30.28632024942257,59.9281117813073,30.25947321408071'
+        bbox = '60.384005,30.932007,59.684381,29.498291'
         Estimate::TransportLogger::REDIS.keys.each do |k|
           next unless k.include?('spbtr:')
           hash = Estimate::TransportLogger::REDIS.get(k)
@@ -63,7 +64,7 @@ class Estimate::TransportLogger
             puts e.message
           end
         end
-        # puts vehicles
+        puts "vehicles.size #{vehicles.size}"
         positions = {}
         vehicles.each do |_k, value|
           value.each do |v|
@@ -73,6 +74,20 @@ class Estimate::TransportLogger
             positions[v['vehicle_id']][:positions] << { timestamp: v['timestamp'], direction: v['direction_id'].to_i, velocity: 0, lat: v['lat'].to_f, lon: v['lon'].to_f, pathId: v['direction_id'].to_i, routeId: v['route_id'].to_i }
           end
         end
+
+        puts "positions #{positions.size}"
+        refreshed_positions = {}
+        positions.each do |k, v|
+          if old_positions[k].blank?
+            refreshed_positions[k] = v
+          elsif old_positions[k][:positions].last[:timestamp] != positions[k][:positions].last[:timestamp]
+            refreshed_positions[k] = v
+          end
+        end
+        old_positions = positions
+        puts "refreshed_positions #{refreshed_positions.size}"
+
+
 
         #hash = positions.map { |_k, v| v }
         #puts Oj.dump(hash)

@@ -59,10 +59,7 @@ class Estimate::Transport
     if vehicle['routeId'].to_s != route.route_id.to_s || vehicle['directionId'].to_s != direction_id.to_s
       return if init_data(vehicle).blank? # route ar shapes not found
     end
-    # set speed
-    if @average_speed.speed.blank?
-      @average_speed.set_default_speed(last_position.velocity.to_f)
-    end
+
     # puts last_position.as_json
     @positions << last_position
   end
