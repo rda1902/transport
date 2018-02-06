@@ -1,5 +1,6 @@
 class Estimate::PositionApproxymator
   RECENT_POSITION_POINTS = 20
+  MAX_TIME_APPROXIMATE = 180
 
   def self.run(transports)
     transports.delete_if { |t| t.positions.blank? }
@@ -87,7 +88,7 @@ class Estimate::PositionApproxymator
       estimate_position.route_id = previous_estimated_position.route_id
       estimate_position.direction_id = previous_estimated_position.direction_id
       @transport.estimated_positions << estimate_position
-      break if (@transport.estimated_positions.last.timestamp.to_i - @transport.estimated_positions.first.timestamp.to_i) >= 180
+      break if (@transport.estimated_positions.last.timestamp.to_i - @transport.estimated_positions.first.timestamp.to_i) >= MAX_TIME_APPROXIMATE
       i += 1
     end
 
@@ -128,10 +129,10 @@ class Estimate::PositionApproxymator
           elsif dis < 1500
             @transport.average_speed.correct(-15.0)
           else
-            return first_interaction
+            @transport.average_speed.correct(-30)
           end
         end
-        puts "+++ #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} прогноз убежал вперед: #{dis} - средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green})"
+        puts "+++ vehicle_id: #{@transport.vehicle_id}, прогноз убежал вперед: #{dis} - средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}), #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
 
       elsif nearest_shape_index_by_last_position > ep_position_by_time_now.shape_index # прогноз тормозит, маленькая скорость ТС, нужно корректировать скорость
         dis = Estimate::Util.distance_between_shapes(ep_position_by_time_now.shape_index, nearest_shape_index_by_last_position, @route_shapes)
@@ -145,11 +146,14 @@ class Estimate::PositionApproxymator
           elsif dis < 1500
             @transport.average_speed.correct(15)
           else
-            return first_interaction
+            @transport.average_speed.correct(30)
           end
         end
-        puts "--- #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} прогноз тормозит: #{dis} - средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green})"
-
+        puts "--- vehicle_id: #{@transport.vehicle_id}, прогноз тормозит: #{dis} - средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}), #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
+      end
+    else
+      if ep_position_by_time_now.shape_index == @transport.estimated_positions.first.shape_index
+       return if @transport.estimated_positions.size > 1 && (@transport.estimated_positions.last.timestamp.to_i - Time.now.to_i) > 20
       end
     end
 
@@ -158,28 +162,32 @@ class Estimate::PositionApproxymator
     return first_interaction if nearest_last_estimated_position.blank?
 
     new_estimated_positions = []
-    nearest_last_estimated_position.timestamp = Time.now
+    # nearest_last_estimated_position.timestamp = Time.now
     new_estimated_positions << nearest_last_estimated_position
     @route_shapes.each_with_index do |sh, index|
       next if nearest_last_estimated_position.shape_index >= index
       previous_estimated_position = new_estimated_positions.last
-      next_shape = sh
 
-      distance = GeoMethod.distance([previous_estimated_position.lat, previous_estimated_position.lon], [next_shape.shape_pt_lat, next_shape.shape_pt_lon])
+      distance = GeoMethod.distance([previous_estimated_position.lat, previous_estimated_position.lon], [sh.shape_pt_lat, sh.shape_pt_lon])
       elapsed_time = distance / @transport.average_speed.speed_meters_in_seconds # meters in seconds
       elapsed_timestamp = previous_estimated_position.timestamp + elapsed_time.seconds
 
       estimate_position = Estimate::EstimatedPosition.new
-      estimate_position.shape_id = next_shape.id
+      estimate_position.shape_id = sh.id
       estimate_position.distance = distance
       estimate_position.shape_index = index
-      estimate_position.lat = next_shape.shape_pt_lat
-      estimate_position.lon = next_shape.shape_pt_lon
+      estimate_position.lat = sh.shape_pt_lat
+      estimate_position.lon = sh.shape_pt_lon
       estimate_position.timestamp = elapsed_timestamp
       estimate_position.route_id = @last_position.route_id
       estimate_position.direction_id = @last_position.direction_id
       new_estimated_positions << estimate_position
-      break if (new_estimated_positions.last.timestamp.to_i - new_estimated_positions.first.timestamp.to_i) >= 180
+      break if (new_estimated_positions.last.timestamp.to_i - new_estimated_positions.first.timestamp.to_i) >= MAX_TIME_APPROXIMATE
+    end
+
+    if nearest_last_estimated_position.shape_index > 0
+      pos = @transport.estimated_positions.find { |ep| ep.shape_index == new_estimated_positions.first.shape_index - 1}
+      new_estimated_positions.unshift(pos.clone) if pos.present?
     end
 
     # стоит на месте
@@ -206,7 +214,7 @@ class Estimate::PositionApproxymator
     key = "spbtr:#{@transport.vehicle_id}"
     hash = []
     @transport.estimated_positions.each do |ep|
-      hash << { vehicle_id: @transport.vehicle_id, route_id: ep.route_id, transport_type: @transport.route.transport_type, route_long_name: @transport.route.long_name, route_short_name: @transport.route.short_name, direction_id: @transport.direction_id, timestamp: (ep.timestamp.to_i.to_s + '000').to_i, lat: ep.lat, lon: ep.lon }
+      hash << { vehicle_id: @transport.vehicle_id, shape_index: ep.shape_index, route_id: ep.route_id, transport_type: @transport.route.transport_type, route_long_name: @transport.route.long_name, route_short_name: @transport.route.short_name, direction_id: @transport.direction_id, timestamp: (ep.timestamp.to_i.to_s + '000').to_i, lat: ep.lat, lon: ep.lon }
     end
     begin
       json = Oj.dump(hash, mode: :compat)
@@ -217,7 +225,7 @@ class Estimate::PositionApproxymator
       return
     else
       Estimate::TransportLogger::REDIS.set(key, json)
-      Estimate::TransportLogger::REDIS.expire(key, 120)
+      Estimate::TransportLogger::REDIS.expire(key, 180)
     end
   end
 

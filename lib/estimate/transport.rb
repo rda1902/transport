@@ -16,13 +16,16 @@ class Estimate::Transport
   def self.create_from_logger(vehicle)
     transport = new
     transport.vehicle_id = vehicle['vehicleId']
-    transport.direction_id = vehicle['directionId']
+    # init route and shapes
     return nil if transport.init_data(vehicle).blank?
+    # add position from 'GUP'
     return nil if transport.add_position(vehicle).blank?
     Estimate::TransportFactory::TRANSPORT << transport
   end
 
   def init_data(vehicle)
+    @estimated_positions.clear
+    @direction_id = vehicle['directionId']
     Estimate::TransportLogger::CONNECTION.exec("SELECT * FROM gtfs_routes where route_id='#{vehicle['routeId']}'") do |result|
       row = result.first
       @route = Estimate::Route.new(route_id: row['route_id'], short_name: row['short_name'], long_name: row['long_name'], route_type: row['route_type'], transport_type: row['transport_type'])
@@ -43,21 +46,13 @@ class Estimate::Transport
     self
   end
 
-  def init_dataOLD(vehicle)
-    self.route = Gtfs::Route.find_by(route_id: vehicle['routeId']).to_estimate
-    shape_id = Gtfs::Trip.find_by(route_id: vehicle['routeId'], direction_id: vehicle['directionId'])&.shape_id
-    return nil if shape_id.blank?
-    self.shapes = Gtfs::Shape.where(shape_id: shape_id).map(&:to_estimate)
-    return nil if shapes.blank?
-    self
-  end
-
   def add_position(vehicle)
     last_position = Estimate::Position.create_from_logger(vehicle)
     return if last_position.blank?
     return nil if @positions.find { |p| p.timestamp == last_position.timestamp }
-    if vehicle['routeId'].to_s != route.route_id.to_s || vehicle['directionId'].to_s != direction_id.to_s
-      return if init_data(vehicle).blank? # route ar shapes not found
+    # if route or direction_id have been changed, refresh transport data (route and shapes)
+    if vehicle['routeId'].to_s != @route.route_id.to_s || vehicle['directionId'].to_s != @direction_id.to_s
+      return if init_data(vehicle).blank? # route or shapes not found
     end
 
     # puts last_position.as_json

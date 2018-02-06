@@ -6,8 +6,8 @@ require 'benchmark'
 class Estimate::TransportLogger
   # CONNECTION = PG.connect(host: 'localhost', user: 'pguser', password: 'fgio892der', dbname: 'spb_tr')
 
-  # CONNECTION = PG.connect('postgres://pguser:fgio892der@localhost/spb_tr')
-  CONNECTION = PG.connect('postgres://postgres:@localhost/spb_transport_dev')
+  CONNECTION = PG.connect('postgres://pguser:fgio892der@localhost/spb_tr')
+  # CONNECTION = PG.connect('postgres://postgres:@localhost/spb_transport_dev')
   REDIS = Redis.new
 
   REQUEST_INTERVAL = 5
@@ -41,7 +41,7 @@ class Estimate::TransportLogger
       }
       puts Estimate::TransportFactory::TRANSPORT.size
       puts Estimate::TransportLogger::REDIS.keys.size
-
+      
 =begin
       puts 'bbox_include_points'
       puts Benchmark.measure {
