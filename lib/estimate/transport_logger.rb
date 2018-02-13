@@ -3,15 +3,16 @@ require 'json'
 require 'redis'
 require 'oj'
 require 'benchmark'
+
 class Estimate::TransportLogger
   # CONNECTION = PG.connect(host: 'localhost', user: 'pguser', password: 'fgio892der', dbname: 'spb_tr')
 
-  CONNECTION = PG.connect('postgres://pguser:fgio892der@localhost/spb_tr')
-  # CONNECTION = PG.connect('postgres://postgres:@localhost/spb_transport_dev')
+  # CONNECTION = PG.connect('postgres://pguser:fgio892der@localhost/spb_tr')
+  CONNECTION = PG.connect('postgres://postgres:@localhost/spb_transport_dev')
   REDIS = Redis.new
 
   REQUEST_INTERVAL = 5
-  URL = 'http://portal.gpt.adc.spb.ru/Portal/transport/internalapi/vehicles/positions/?transports=bus,tram&bbox=29.498291,60.384005,30.932007,59.684381'.freeze
+  URL = 'http://portal.gpt.adc.spb.ru/Portal/transport/internalapi/vehicles/positions/?transports=bus,trolley,tram&bbox=29.498291,60.384005,30.932007,59.684381'.freeze
   # URL = 'http://portal.gpt.adc.spb.ru/Portal/transport/internalapi/vehicles/positions/?transports=bus,tram&bbox=30.330338992624405,59.94716100016144,30.37660500737556,59.907160999838474'.freeze
 
   def request_data
@@ -27,8 +28,9 @@ class Estimate::TransportLogger
   end
 
   def run
-    old_positions = {}
-    Estimate::TransportLogger::REDIS.flushdb
+    Estimate::TransportLogger::REDIS.keys
+                                    .select { |k| k.include? 'spbtr:' }
+                                    .each { |k| Estimate::TransportLogger::REDIS.del(k) }
     loop do
       data = request_data
       puts 'processing_data'
@@ -41,8 +43,9 @@ class Estimate::TransportLogger
       }
       puts Estimate::TransportFactory::TRANSPORT.size
       puts Estimate::TransportLogger::REDIS.keys.size
-      
+
 =begin
+      old_positions = {}
       puts 'bbox_include_points'
       puts Benchmark.measure {
         vehicles = {}
