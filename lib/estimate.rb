@@ -1,3 +1,1 @@
-module Estimate
-
-end
+module Estimate; end
