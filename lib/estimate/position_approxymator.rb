@@ -101,8 +101,6 @@ module Estimate
       end
 
       save
-
-
       # puts @transport.estimated_positions.size
       # puts "time #{@transport.estimated_positions.last.timestamp.to_i - @transport.estimated_positions.first.timestamp.to_i}"
     end
@@ -152,10 +150,8 @@ module Estimate
           end
           puts "--- vehicle_id: #{@transport.vehicle_id}, прогноз тормозит: #{dis} - средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}), #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
         end
-      else
-        if ep_position_by_time_now.shape_index == @transport.estimated_positions.first.shape_index
-         return if @transport.estimated_positions.size > 1 && (@transport.estimated_positions.last.timestamp.to_i - Time.now.to_i) > 20
-        end
+      elsif ep_position_by_time_now.shape_index == @transport.estimated_positions.first.shape_index
+        return if @transport.estimated_positions.size > 1 && (@transport.estimated_positions.last.timestamp.to_i - Time.now.to_i) > 20
       end
 
       nearest_last_estimated_position = ep_position_by_time_now
@@ -186,8 +182,8 @@ module Estimate
         break if (new_estimated_positions.last.timestamp.to_i - new_estimated_positions.first.timestamp.to_i) >= MAX_TIME_APPROXIMATE
       end
 
-      if nearest_last_estimated_position.shape_index > 0
-        pos = @transport.estimated_positions.find { |ep| ep.shape_index == new_estimated_positions.first.shape_index - 1}
+      if nearest_last_estimated_position.shape_index.positive?
+        pos = @transport.estimated_positions.find { |ep| ep.shape_index == new_estimated_positions.first.shape_index - 1 }
         new_estimated_positions.unshift(pos.clone) if pos.present?
       end
 
@@ -211,12 +207,7 @@ module Estimate
     end
 
     def save
-      # delete_estimated_positions
-      key = "spbtr:#{@transport.vehicle_id}"
-      hash = []
-      @transport.estimated_positions.each do |ep|
-        hash << { vehicle_id: @transport.vehicle_id, shape_index: ep.shape_index, route_id: ep.route_id, transport_type: @transport.route.transport_type, route_long_name: @transport.route.long_name, route_short_name: @transport.route.short_name, direction_id: @transport.direction_id, timestamp: (ep.timestamp.to_i.to_s + '000').to_i, lat: ep.lat, lon: ep.lon }
-      end
+      hash = estimated_positions_hash
       begin
         json = Oj.dump(hash, mode: :compat)
       rescue ArgumentError => e
@@ -225,14 +216,22 @@ module Estimate
         puts e.message
         return
       else
-        Estimate::TransportLogger::REDIS.set(key, json)
-        Estimate::TransportLogger::REDIS.expire(key, 180)
+        Estimate::TransportLogger::REDIS.setex(key, MAX_TIME_APPROXIMATE, json)
       end
     end
 
     def delete_estimated_positions
-      key = "spbtr:#{@transport.vehicle_id}"
       Estimate::TransportLogger::REDIS.del(key)
+    end
+
+    def key
+      "spbtr:#{@transport.vehicle_id}"
+    end
+
+    def estimated_positions_hash
+      @transport.estimated_positions.map do |ep|
+        { vehicle_id: @transport.vehicle_id, shape_index: ep.shape_index, route_id: ep.route_id, transport_type: @transport.route.transport_type, route_long_name: @transport.route.long_name, route_short_name: @transport.route.short_name, direction_id: @transport.direction_id, timestamp: (ep.timestamp.to_i.to_s + '000').to_i, lat: ep.lat, lon: ep.lon }
+      end
     end
   end
 end
