@@ -1,5 +1,5 @@
 module Estimate
-    class Shape
+  class Shape
     attr_accessor :id
     attr_accessor :shape_id
     attr_accessor :shape_pt_lat
@@ -30,10 +30,12 @@ module Estimate
 
     def self.find_shape_id(route_id, direction_id)
       Estimate::TransportLogger::CONNECTION.exec_params('SELECT * FROM gtfs_trips where route_id=$1 and direction_id=$2', [route_id, direction_id]) do |result|
-        result.each do |res|
-          next unless Estimate::CalendarService.instance.valid(res['service_id']).blank?
-          return res['shape_id']
-        end
+        return nil if result.values.size.zero?
+        return result.first['shape_id']
+        # result.each do |res|
+        #   next unless Estimate::CalendarService.instance.valid(res['service_id']).blank?
+        #   return res['shape_id']
+        # end
       end
       nil
     end

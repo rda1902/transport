@@ -35,7 +35,7 @@ module Estimate
       if @transport.estimated_positions.size.zero?
         first_interaction
       elsif @last_position.route_id.to_s != @transport.estimated_positions.last.route_id.to_s
-         first_interaction
+        first_interaction
       elsif @transport.direction_id.to_i != @last_position.direction_id.to_i
         first_interaction
       else
@@ -53,7 +53,7 @@ module Estimate
       # puts 'first_interaction'
 
       # set speed
-      @transport.average_speed.set_default_speed(@last_position.velocity.to_f)
+      @transport.average_speed.init_default_speed(@last_position.velocity.to_f)
 
       @transport.estimated_positions.clear
       nearest_shape_index = @route_shapes.index { |s| s.shape_pt_lat == @last_position.shape.shape_pt_lat && s.shape_pt_lon == @last_position.shape.shape_pt_lon }

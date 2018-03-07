@@ -4,7 +4,7 @@ module Estimate
     attr_accessor :seconds
     attr_accessor :default_speed
 
-    def set_default_speed(km_in_hour)
+    def init_default_speed(km_in_hour)
       km_in_hour = 1 if km_in_hour <= 0
       @default_speed = km_in_hour.to_f
     end

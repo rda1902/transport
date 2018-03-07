@@ -17,7 +17,7 @@ module Estimate
       begin
         response = Net::HTTP.get(uri)
         result_json = Oj.load(response)
-      rescue StandartError => e
+      rescue StandardError => e
         puts e.inspect
       end
       result_json
