@@ -16,7 +16,7 @@ module Estimate
     end
 
     def speed
-      @default_speed
+      @default_speed.round(2)
     end
 
     def speed_meters_in_seconds

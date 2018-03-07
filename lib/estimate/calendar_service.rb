@@ -1,4 +1,5 @@
 require 'singleton'
+
 module Estimate
   class CalendarService
     include Singleton

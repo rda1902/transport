@@ -7,7 +7,6 @@ module Estimate
       transports.delete_if { |t| t.positions.blank? }
       transports.delete_if { |t| (t.positions.last.timestamp + 10.minutes) < Time.now }
       transports.each do |transport|
-        next if transport.positions.blank?
         new.get_estimated_location_points(transport)
       end
     end
@@ -17,7 +16,8 @@ module Estimate
       @last_position = @transport.positions.last
 
       if @last_position.shape_inits(@transport.shapes).blank?
-        puts 'Shape was not found!'
+        Logger.debug "Shape was not found! vehicle_id: #{@transport.vehicle_id}
+                      Route_id #{@last_position.route_id} not found!"
         @transport.positions.pop
         return
       end
@@ -27,7 +27,7 @@ module Estimate
       @route = @transport.route
 
       if @route.blank?
-        puts "Route_id #{@last_position.route_id} not found!"
+        Logger.debug "Route_id #{@last_position.route_id} not found!"
         return
       end
 
@@ -76,7 +76,7 @@ module Estimate
         previous_estimated_position = @transport.estimated_positions.last
         next_shape = @route_shapes[next_shape_index]
         distance = GeoMethod.distance([previous_estimated_position.lat, previous_estimated_position.lon], [next_shape.shape_pt_lat, next_shape.shape_pt_lon])
-        elapsed_time = distance / @transport.average_speed.speed # meters in seconds
+        elapsed_time = distance / @transport.average_speed.speed_meters_in_seconds # meters in seconds
         elapsed_timestamp = previous_estimated_position.timestamp + elapsed_time.seconds
 
         estimate_position = Estimate::EstimatedPosition.new
@@ -131,7 +131,9 @@ module Estimate
               @transport.average_speed.correct(-30)
             end
           end
-          puts "+++ vehicle_id: #{@transport.vehicle_id}, прогноз убежал вперед: #{dis} - средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}), #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
+          puts "+++ vehicle_id: #{@transport.vehicle_id}, прогноз убежал вперед: #{dis}
+          средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
+          #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
 
         elsif nearest_shape_index_by_last_position > ep_position_by_time_now.shape_index # прогноз тормозит, маленькая скорость ТС, нужно корректировать скорость
           dis = Estimate::Util.distance_between_shapes(ep_position_by_time_now.shape_index, nearest_shape_index_by_last_position, @route_shapes)
@@ -148,7 +150,9 @@ module Estimate
               @transport.average_speed.correct(30)
             end
           end
-          puts "--- vehicle_id: #{@transport.vehicle_id}, прогноз тормозит: #{dis} - средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}), #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
+          puts "--- vehicle_id: #{@transport.vehicle_id}, прогноз тормозит: #{dis}
+          средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
+          #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
         end
       elsif ep_position_by_time_now.shape_index == @transport.estimated_positions.first.shape_index
         return if @transport.estimated_positions.size > 1 && (@transport.estimated_positions.last.timestamp.to_i - Time.now.to_i) > 20
@@ -211,9 +215,8 @@ module Estimate
       begin
         json = Oj.dump(hash, mode: :compat)
       rescue ArgumentError => e
-        puts hash
-        puts e.backtrace.join("\n")
-        puts e.message
+        Logger.info(hash)
+        Logger.error(e.inspect)
         return
       else
         Estimate::TransportLogger::REDIS.setex(key, MAX_TIME_APPROXIMATE, json)
@@ -230,7 +233,13 @@ module Estimate
 
     def estimated_positions_hash
       @transport.estimated_positions.map do |ep|
-        { vehicle_id: @transport.vehicle_id, shape_index: ep.shape_index, route_id: ep.route_id, transport_type: @transport.route.transport_type, route_long_name: @transport.route.long_name, route_short_name: @transport.route.short_name, direction_id: @transport.direction_id, timestamp: (ep.timestamp.to_i.to_s + '000').to_i, lat: ep.lat, lon: ep.lon }
+        { vehicle_id: @transport.vehicle_id, shape_index: ep.shape_index,
+          route_id: ep.route_id, transport_type: @transport.route.transport_type,
+          route_long_name: @transport.route.long_name,
+          route_short_name: @transport.route.short_name,
+          direction_id: @transport.direction_id,
+          timestamp: (ep.timestamp.to_i.to_s + '000').to_i,
+          lat: ep.lat, lon: ep.lon }
       end
     end
   end

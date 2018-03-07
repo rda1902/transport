@@ -18,27 +18,38 @@ module Estimate
         response = Net::HTTP.get(uri)
         result_json = Oj.load(response)
       rescue StandardError => e
-        puts e.inspect
+        Logger.error(e.inspect)
       end
       result_json
     end
 
     def run
+      Logger.info('app start')
       Estimate::TransportLogger::REDIS.flushdb
       loop do
-        data = request_data
-        puts 'processing_data'
-        puts Benchmark.measure {
-          Estimate::TransportFactory.processing_data(data)
-        }
-        puts 'position_approxymator'
-        puts Benchmark.measure {
-          Estimate::PositionApproxymator.run(Estimate::TransportFactory::TRANSPORT)
-        }
+        processing_data
+        position_approxymator
         puts Estimate::TransportFactory::TRANSPORT.size
         puts Estimate::TransportLogger::REDIS.keys.size
         sleep REQUEST_INTERVAL
       end
+    end
+
+    private
+
+    def processing_data
+      puts 'processing_data'
+      data = request_data
+      puts Benchmark.measure {
+        Estimate::TransportFactory.processing_data(data)
+      }
+    end
+
+    def position_approxymator
+      puts 'position_approxymator'
+      puts Benchmark.measure {
+        Estimate::PositionApproxymator.run(Estimate::TransportFactory::TRANSPORT)
+      }
     end
   end
 end
