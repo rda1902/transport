@@ -21,19 +21,19 @@ module Estimate
 
     def all_calendars
       calendars = []
-      Estimate::TransportLogger::CONNECTION.exec_params('SELECT * FROM gtfs_calendars ') do |result|
+      Config.instance.connection.exec_params('SELECT * FROM gtfs_calendars ') do |result|
         calendars = result.map do |row|
-          Estimate::Calendar.new(service_id: row['service_id'],
-                                 monday: row['monday'],
-                                 tuesday: row['tuesday'],
-                                 wednesday: row['wednesday'],
-                                 thursday: row['thursday'],
-                                 friday: row['friday'],
-                                 saturday: row['saturday'],
-                                 sunday: row['sunday'],
-                                 start_date: row['start_date'],
-                                 end_date: row['end_date'],
-                                 service_name: row['service_name'])
+          new(service_id: row['service_id'],
+              monday: row['monday'],
+              tuesday: row['tuesday'],
+              wednesday: row['wednesday'],
+              thursday: row['thursday'],
+              friday: row['friday'],
+              saturday: row['saturday'],
+              sunday: row['sunday'],
+              start_date: row['start_date'],
+              end_date: row['end_date'],
+              service_name: row['service_name'])
         end
       end
     end

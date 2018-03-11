@@ -10,7 +10,9 @@ module Estimate
     attr_accessor :distance
 
     def as_json
-      { timestamp: timestamp_unix_format, direction: direction_id.to_i, velocity: 0, lat: lat.to_f, lon: lon.to_f, pathId: direction_id.to_i, routeId: route_id.to_i }
+      { shape_index: shape_index, route_id: route_id,
+        timestamp: (timestamp.to_i.to_s + '000').to_i,
+        lat: lat, lon: lon }
     end
 
     private

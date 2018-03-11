@@ -32,7 +32,7 @@ module Estimate
 
     def shape_inits(shapes)
       return nil if shapes.blank?
-      nearest_shape = shapes.min_by { |shape| ::GeoMethod.distance([lat, lon], [shape.shape_pt_lat, shape.shape_pt_lon]) }
+      nearest_shape = shapes.min_by { |shape| GeoMethod.distance([lat, lon], [shape.shape_pt_lat, shape.shape_pt_lon]) }
       return nil if nearest_shape.blank?
       @nearest_shape_id = nearest_shape.id
       @shape = nearest_shape

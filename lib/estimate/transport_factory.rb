@@ -1,17 +1,17 @@
 module Estimate
   class TransportFactory
-    TRANSPORT = []
     def self.processing_data(data)
+      transport_all = Config.instance.transport
       data['result'].each do |vehicle|
-        transport = TRANSPORT.find { |t| t.vehicle_id == vehicle['vehicleId'] }
+        transport = transport_all.find { |t| t.vehicle_id == vehicle['vehicleId'] }
         begin
           if transport.present?
             transport.add_position(vehicle)
           else
-            Estimate::Transport.create_from_logger(vehicle)
+            Transport.create_from_logger(vehicle)
           end
-        rescue Estimate::ShapesNotFound
-          TRANSPORT.delete_at(TRANSPORT.index(transport)) if transport.present?
+        rescue ShapesNotFound
+          transport_all.delete_at(transport_all.index(transport)) if transport.present?
         end
       end
     end

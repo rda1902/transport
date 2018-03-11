@@ -15,9 +15,13 @@ module Estimate
     end
 
     def self.find(route_id)
-      Estimate::TransportLogger::CONNECTION.exec_params('SELECT * FROM gtfs_routes where route_id = $1 LIMIT 1', [route_id]) do |result|
+      Config.instance.connection.exec_params('SELECT * FROM gtfs_routes where route_id = $1 LIMIT 1', [route_id]) do |result|
         row = result.first
-        return new(route_id: row['route_id'], short_name: row['short_name'], long_name: row['long_name'], route_type: row['route_type'], transport_type: row['transport_type'])
+        return new(route_id: row['route_id'],
+                   short_name: row['short_name'],
+                   long_name: row['long_name'],
+                   route_type: row['route_type'],
+                   transport_type: row['transport_type'])
       end
     end
   end
