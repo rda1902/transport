@@ -46,8 +46,6 @@ module Estimate
     end
 
     def first_interaction
-      # puts 'first_interaction'
-
       # set speed
       @transport.average_speed.init_default_speed(@last_position.velocity.to_f)
 
@@ -89,23 +87,16 @@ module Estimate
         i += 1
       end
 
-       # стоит на месте
+      # стоит на месте
       if @transport.estimated_positions.size == 1
         pos = @transport.estimated_positions.first.clone
         pos.timestamp += 60.seconds
         @transport.estimated_positions << pos
       end
-
       save
-      # puts @transport.estimated_positions.size
-      # puts "time #{@transport.estimated_position_last.timestamp.to_i - @transport.estimated_positions.first.timestamp.to_i}"
     end
 
     def next_interaction
-      # puts 'next_interaction'
-      # delete_estimated_positions
-      # puts 'points 1: ' + @transport.estimated_positions.size.to_s
-
       ep_position_by_time_now = @transport.estimated_positions.sort_by { |ep| (ep.timestamp.to_i - Time.now.to_i).abs }.first
 
       if @last_position.calculated == false
@@ -114,38 +105,16 @@ module Estimate
         speed_was = @transport.average_speed.speed
         if nearest_shape_index_by_last_position < ep_position_by_time_now.shape_index # прогноз убежал вперед, большая скорость ТС, нужно корректировать скорость
           dis = Util.distance_between_shapes(nearest_shape_index_by_last_position, ep_position_by_time_now.shape_index, @route_shapes)
-          if dis > 50
-            if dis < 200
-              @transport.average_speed.correct(-2.0)
-            elsif dis < 500
-              @transport.average_speed.correct(-4.0)
-            elsif dis < 1000
-              @transport.average_speed.correct(-12.0)
-            elsif dis < 1500
-              @transport.average_speed.correct(-15.0)
-            else
-              @transport.average_speed.correct(-30)
-            end
-          end
+          @transport.average_speed.correct_minus(dis)
+
           puts "+++ vehicle_id: #{@transport.vehicle_id}, прогноз убежал вперед: #{dis}
           средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
           #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
 
         elsif nearest_shape_index_by_last_position > ep_position_by_time_now.shape_index # прогноз тормозит, маленькая скорость ТС, нужно корректировать скорость
           dis = Util.distance_between_shapes(ep_position_by_time_now.shape_index, nearest_shape_index_by_last_position, @route_shapes)
-          if dis > 50
-            if dis < 200
-              @transport.average_speed.correct(2.0)
-            elsif dis < 500
-              @transport.average_speed.correct(4.0)
-            elsif dis < 1000
-              @transport.average_speed.correct(12.0)
-            elsif dis < 1500
-              @transport.average_speed.correct(15)
-            else
-              @transport.average_speed.correct(30)
-            end
-          end
+          @transport.average_speed.correct_plus(dis)
+
           puts "--- vehicle_id: #{@transport.vehicle_id}, прогноз тормозит: #{dis}
           средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
           #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
@@ -197,9 +166,6 @@ module Estimate
       @transport.estimated_positions = new_estimated_positions
       save
 
-      # puts @transport.estimated_positions.size
-      # puts "time #{@transport.estimated_position_last.timestamp.to_i - @transport.estimated_positions.first.timestamp.to_i}"
-      # puts 'points 2: ' + @transport.estimated_positions.size.to_s
     end
 
     def save

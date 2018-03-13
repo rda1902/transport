@@ -24,5 +24,35 @@ module Estimate
       speed_temp = 0.1 if speed_temp <= 0
       speed_temp.round(2)
     end
+
+    def correct_minus(dis)
+      return if dis < 50
+      if dis < 200
+        correct(-2.0)
+      elsif dis < 500
+        correct(-4.0)
+      elsif dis < 1000
+        correct(-12.0)
+      elsif dis < 1500
+        correct(-15.0)
+      else
+        correct(-30)
+      end
+    end
+
+    def correct_plus(dis)
+      return if dis < 50
+      if dis < 200
+        correct(2.0)
+      elsif dis < 500
+        correct(4.0)
+      elsif dis < 1000
+        correct(12.0)
+      elsif dis < 1500
+        correct(15.0)
+      else
+        correct(30)
+      end
+    end
   end
 end
