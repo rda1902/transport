@@ -1,5 +1,6 @@
 module Estimate
   class Transport
+    RECENT_POSITION_POINTS = 20
     attr_accessor :vehicle_id
     attr_accessor :positions
     attr_accessor :estimated_positions
@@ -7,6 +8,9 @@ module Estimate
     attr_accessor :shapes
     attr_accessor :direction_id
     attr_accessor :average_speed
+
+    delegate :last, to: :estimated_positions, prefix: :estimated_position, allow_nil: true
+    delegate :last, to: :positions, prefix: :position, allow_nil: true
 
     def initialize
       @positions = []
@@ -53,7 +57,24 @@ module Estimate
         direction_id: direction_id }
     end
 
+    def calculated!
+      position_last.calculated = true
+      remove_old_positions
+    end
+
+    def route_changed?
+      position_last.route_id.to_s != estimated_position_last.route_id.to_s
+    end
+
+    def direction_changed?
+      direction_id.to_i != position_last.direction_id.to_i
+    end
+
     private
+
+    def remove_old_positions
+      positions.shift(1) if positions.size > RECENT_POSITION_POINTS
+    end
 
     def check_route_and_direction(vehicle)
       vehicle['routeId'].to_s != @route.route_id.to_s || vehicle['directionId'].to_s != @direction_id.to_s

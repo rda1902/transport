@@ -4,6 +4,11 @@ module Estimate
     URL = 'http://portal.gpt.adc.spb.ru/Portal/transport/internalapi/vehicles/positions/?transports=bus,trolley,tram&bbox=29.498291,60.384005,30.932007,59.684381'.freeze
     # URL = 'http://portal.gpt.adc.spb.ru/Portal/transport/internalapi/vehicles/positions/?transports=bus,tram&bbox=30.330338992624405,59.94716100016144,30.37660500737556,59.907160999838474'.freeze
 
+    def initialize
+      @config = Config.instance
+      @config.redis.flushdb
+    end
+
     def request_data
       uri = URI(URL)
       result_json = { 'result' => [] }
@@ -18,13 +23,11 @@ module Estimate
 
     def run
       Logger.info('app start')
-      config = Config.instance
-      config.redis.flushdb
       loop do
         processing_data
         position_approxymator
-        puts config.transport.size
-        puts config.redis.keys.size
+        puts @config.transport.size
+        puts @config.redis.keys.size
         sleep REQUEST_INTERVAL
       end
     end
