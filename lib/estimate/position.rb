@@ -18,20 +18,29 @@ module Estimate
     delegate :shape_pt_lat, to: :shape
     delegate :shape_pt_lon, to: :shape
 
+    def initialize(args = {})
+      @lon = args.dig(:lon)
+      @lat = args.dig(:lat)
+      @direction = args.dig(:direction)
+      @timestamp = args.dig(:timestamp)
+      @velocity = args.dig(:velocity)
+      @route_id = args.dig(:routeId)
+      @direction_id = args.dig(:directionId)
+      @vehicle_label = args.dig(:vehicleLabel)
+      @license_plate = args.dig(:licensePlate)
+      @order_number = args.dig(:orderNumber)
+      @calculated = false
+    end
+
     def self.create_from_logger(data)
-      position = new
-      position.lon = data.dig('position', 'lon')
-      position.lat = data.dig('position', 'lat')
-      position.direction = data['direction']
-      position.timestamp = Time.parse("#{data['timestamp']} +0300")
-      position.velocity = data['velocity']
-      position.route_id = data['routeId']
-      position.direction_id = data['directionId']
-      position.vehicle_label = data['vehicleLabel']
-      position.license_plate = data['licensePlate']
-      position.order_number = data['orderNumber']
-      position.calculated = false
-      position
+      new(
+        lon: data.dig('position', 'lon'), lat: data.dig('position', 'lat'),
+        direction: data['direction'],
+        timestamp: Time.parse("#{data['timestamp']} +0300"),
+        velocity: data['velocity'], route_id: data['routeId'],
+        direction_id: data['directionId'], vehicle_label: data['vehicleLabel'],
+        license_plate: data['licensePlate'], order_number: data['orderNumber']
+      )
     end
 
     def shape_inits(shapes)

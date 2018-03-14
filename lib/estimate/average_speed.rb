@@ -1,8 +1,14 @@
 module Estimate
   class AverageSpeed
+    DECREASE = [[50, -1.0], [200, -2.0], [500, -4.0], [1000, -12.0], [1500, -15.0], [Float::INFINITY, -30.0]].freeze
+    INCREASE = [[50, 1.0], [200, 2.0], [500, 4.0], [1000, 12.0], [1500, 15.0], [Float::INFINITY, 30.0]].freeze
     attr_accessor :distance_in_meters
     attr_accessor :seconds
     attr_accessor :default_speed
+
+    def initialize
+      @default_speed = 0.0
+    end
 
     def init_default_speed(km_in_hour)
       km_in_hour = 1 if km_in_hour <= 0
@@ -26,33 +32,17 @@ module Estimate
     end
 
     def correct_minus(dis)
-      return if dis < 50
-      if dis < 200
-        correct(-2.0)
-      elsif dis < 500
-        correct(-4.0)
-      elsif dis < 1000
-        correct(-12.0)
-      elsif dis < 1500
-        correct(-15.0)
-      else
-        correct(-30)
-      end
+      correct_meth(dis, DECREASE)
     end
 
     def correct_plus(dis)
-      return if dis < 50
-      if dis < 200
-        correct(2.0)
-      elsif dis < 500
-        correct(4.0)
-      elsif dis < 1000
-        correct(12.0)
-      elsif dis < 1500
-        correct(15.0)
-      else
-        correct(30)
-      end
+      correct_meth(dis, INCREASE)
+    end
+
+    private
+
+    def correct_meth(dis, values)
+      values.each { |v| break correct(v[1]) if dis < v[0] }
     end
   end
 end

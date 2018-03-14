@@ -7,6 +7,9 @@ module Estimate
     attr_accessor :shape_pt_sequence
     attr_accessor :shape_dist_traveled
 
+    alias lat shape_pt_lat
+    alias lon shape_pt_lon
+
     def initialize(args)
       @shape_id = args[:id]
       @shape_id = args[:shape_id]
