@@ -13,23 +13,9 @@ module Estimate
     def get_estimated_location_points(transport)
       @transport = transport
       @last_position = @transport.position_last
-
-      if @last_position.shape_inits(@transport.shapes).blank?
-        Logger.debug "Shape was not found! vehicle_id: #{@transport.vehicle_id}
-                      Route_id #{@last_position.route_id} not found!"
-        @transport.positions.pop
-        return
-      end
-
+      # @last_position.shape_inits(@transport.shapes)
       @route_shapes = @transport.shapes
-
       @route = @transport.route
-
-      if @route.blank?
-        Logger.debug "Route_id #{@last_position.route_id} not found!"
-        return
-      end
-
       interaction_switcher
       @transport.calculated!
       @transpor
@@ -48,19 +34,10 @@ module Estimate
     def first_interaction
       # set speed
       @transport.average_speed.init_default_speed(@last_position.velocity.to_f)
-
       @transport.estimated_positions.clear
-      nearest_shape_index = @route_shapes.index { |s| s.shape_pt_lat == @last_position.shape.shape_pt_lat && s.shape_pt_lon == @last_position.shape.shape_pt_lon }
+      nearest_shape_index = @transport.nearest_shape_index
 
-      estimate_position = EstimatedPosition.new
-      estimate_position.shape_id = @last_position.shape.id
-      estimate_position.distance = 0
-      estimate_position.shape_index = nearest_shape_index
-      estimate_position.lat = @last_position.shape.shape_pt_lat
-      estimate_position.lon = @last_position.shape.shape_pt_lon
-      estimate_position.timestamp = @last_position.timestamp
-      estimate_position.route_id = @last_position.route_id
-      estimate_position.direction_id = @last_position.direction_id
+      estimate_position = EstimatedPosition.first_position_init(@transport)
       @transport.estimated_positions << estimate_position
 
       i = 1
@@ -73,15 +50,14 @@ module Estimate
         elapsed_time = distance / @transport.average_speed.speed_meters_in_seconds # meters in seconds
         elapsed_timestamp = previous_estimated_position.timestamp + elapsed_time.seconds
 
-        estimate_position = EstimatedPosition.new
-        estimate_position.shape_id = next_shape.id
-        estimate_position.distance = distance
-        estimate_position.lat = next_shape.shape_pt_lat
-        estimate_position.lon = next_shape.shape_pt_lon
-        estimate_position.shape_index = next_shape_index
-        estimate_position.timestamp = elapsed_timestamp
-        estimate_position.route_id = previous_estimated_position.route_id
-        estimate_position.direction_id = previous_estimated_position.direction_id
+        estimate_position = EstimatedPosition.new(
+          shape_id: next_shape.id, distance: distance,
+          lat: next_shape.shape_pt_lat, lon: next_shape.shape_pt_lon,
+          shape_index: next_shape_index, timestamp: elapsed_timestamp,
+          route_id: previous_estimated_position.route_id,
+          direction_id: previous_estimated_position.direction_id
+        )
+
         @transport.estimated_positions << estimate_position
         break if (@transport.estimated_position_last.timestamp.to_i - @transport.estimated_positions.first.timestamp.to_i) >= MAX_TIME_APPROXIMATE
         i += 1
@@ -100,35 +76,33 @@ module Estimate
       ep_position_by_time_now = @transport.estimated_positions.sort_by { |ep| (ep.timestamp.to_i - Time.now.to_i).abs }.first
 
       if @last_position.calculated == false
-        # nearest_ep_by_last_position = @transport.estimated_positions.sort_by { |ep| (ep.timestamp.to_i - @last_position.timestamp.to_i).abs }.first
-        nearest_shape_index_by_last_position = @route_shapes.index(@route_shapes.min_by { |shape| GeoMethod.distance([@last_position.lat, @last_position.lon], [shape.shape_pt_lat, shape.shape_pt_lon]) })
+        nearest_shape_index_by_last_position = @transport.nearest_shape_index
+
         speed_was = @transport.average_speed.speed
         if nearest_shape_index_by_last_position < ep_position_by_time_now.shape_index # прогноз убежал вперед, большая скорость ТС, нужно корректировать скорость
           dis = Util.distance_between_shapes(nearest_shape_index_by_last_position, ep_position_by_time_now.shape_index, @route_shapes)
           @transport.average_speed.correct_minus(dis)
 
-          puts "+++ vehicle_id: #{@transport.vehicle_id}, прогноз убежал вперед: #{dis}
-          средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
-          #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
+          puts "+++ vehicle_id: #{@transport.vehicle_id}, прогноз убежал вперед: #{dis.to_s.yellow}
+                средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
+                #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index}"
 
         elsif nearest_shape_index_by_last_position > ep_position_by_time_now.shape_index # прогноз тормозит, маленькая скорость ТС, нужно корректировать скорость
           dis = Util.distance_between_shapes(ep_position_by_time_now.shape_index, nearest_shape_index_by_last_position, @route_shapes)
           @transport.average_speed.correct_plus(dis)
 
-          puts "--- vehicle_id: #{@transport.vehicle_id}, прогноз тормозит: #{dis}
-          средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
-          #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index} "
+          puts "--- vehicle_id: #{@transport.vehicle_id}, прогноз тормозит: #{dis.to_s.yellow}
+                средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
+                #{nearest_shape_index_by_last_position}: #{ep_position_by_time_now.shape_index}"
         elsif ep_position_by_time_now.shape_index == @transport.estimated_positions.first.shape_index
           return if @transport.estimated_positions.size > 1 && (@transport.estimated_position_last.timestamp.to_i - Time.now.to_i) > 20
         end
       end
 
       nearest_last_estimated_position = ep_position_by_time_now
-
       return first_interaction if nearest_last_estimated_position.blank?
 
       new_estimated_positions = []
-      # nearest_last_estimated_position.timestamp = Time.now
       new_estimated_positions << nearest_last_estimated_position
       @route_shapes.each_with_index do |sh, index|
         next if nearest_last_estimated_position.shape_index >= index
@@ -138,15 +112,12 @@ module Estimate
         elapsed_time = distance / @transport.average_speed.speed_meters_in_seconds # meters in seconds
         elapsed_timestamp = previous_estimated_position.timestamp + elapsed_time.seconds
 
-        estimate_position = EstimatedPosition.new
-        estimate_position.shape_id = sh.id
-        estimate_position.distance = distance
-        estimate_position.shape_index = index
-        estimate_position.lat = sh.shape_pt_lat
-        estimate_position.lon = sh.shape_pt_lon
-        estimate_position.timestamp = elapsed_timestamp
-        estimate_position.route_id = @last_position.route_id
-        estimate_position.direction_id = @last_position.direction_id
+        estimate_position = EstimatedPosition.new(
+          shape_id: sh.id, distance: distance, shape_index: index,
+          lat: sh.shape_pt_lat, lon: sh.shape_pt_lon,
+          timestamp: elapsed_timestamp, route_id: @last_position.route_id,
+          direction_id: @last_position.direction_id
+        )
         new_estimated_positions << estimate_position
         break if (new_estimated_positions.last.timestamp.to_i - new_estimated_positions.first.timestamp.to_i) >= MAX_TIME_APPROXIMATE
       end
@@ -165,7 +136,6 @@ module Estimate
 
       @transport.estimated_positions = new_estimated_positions
       save
-
     end
 
     def save

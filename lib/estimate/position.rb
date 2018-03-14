@@ -11,8 +11,12 @@ module Estimate
     attr_accessor :order_number
     attr_accessor :license_plate
     attr_accessor :nearest_shape_id
+    attr_accessor :nearest_shape_index
     attr_accessor :shape
     attr_accessor :calculated
+
+    delegate :shape_pt_lat, to: :shape
+    delegate :shape_pt_lon, to: :shape
 
     def self.create_from_logger(data)
       position = new
@@ -31,9 +35,8 @@ module Estimate
     end
 
     def shape_inits(shapes)
-      return nil if shapes.blank?
       nearest_shape = shapes.min_by { |shape| GeoMethod.distance([lat, lon], [shape.shape_pt_lat, shape.shape_pt_lon]) }
-      return nil if nearest_shape.blank?
+      @nearest_shape_index = shapes.index(nearest_shape)
       @nearest_shape_id = nearest_shape.id
       @shape = nearest_shape
     end

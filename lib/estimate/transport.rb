@@ -32,6 +32,7 @@ module Estimate
       @estimated_positions.clear
       @direction_id = vehicle['directionId']
       @route = Route.find(vehicle['routeId'])
+      raise RouteNotFound, "vehicle: #{vehicle}, route_id: #{vehicle['routeId']}" if @route.blank?
       @shapes = Shape.find_all(vehicle['routeId'], vehicle['directionId'])
       raise ShapesNotFound, "vehicle: #{vehicle}" if @shapes.blank?
       self
@@ -45,8 +46,8 @@ module Estimate
       if check_route_and_direction(vehicle)
         return if init_data(vehicle).blank? # route or shapes not found
       end
-
       # puts last_position.as_json
+      last_position.shape_inits(shapes)
       @positions << last_position
     end
 
@@ -68,6 +69,11 @@ module Estimate
 
     def direction_changed?
       direction_id.to_i != position_last.direction_id.to_i
+    end
+
+    def nearest_shape_index
+      nearest_shape = shapes.min_by { |shape| GeoMethod.distance([position_last.lat, position_last.lon], [shape.shape_pt_lat, shape.shape_pt_lon]) }
+      shapes.index(nearest_shape)
     end
 
     private

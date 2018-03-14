@@ -10,7 +10,7 @@ module Estimate
           else
             Transport.create_from_logger(vehicle)
           end
-        rescue ShapesNotFound
+        rescue ShapesNotFound, RouteNotFound
           transport_all.delete_at(transport_all.index(transport)) if transport.present?
         end
       end
