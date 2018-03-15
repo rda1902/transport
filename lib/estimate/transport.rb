@@ -11,21 +11,12 @@ module Estimate
 
     delegate :last, to: :estimated_positions, prefix: :estimated_position, allow_nil: true
     delegate :last, to: :positions, prefix: :position, allow_nil: true
+    delegate :nearest_ep_by_time_now, to: :estimated_positions, allow_nil: true
 
     def initialize
-      @positions = []
-      @estimated_positions = []
+      @positions = Positions.new
+      @estimated_positions = EstimatedPositions.new
       @average_speed = AverageSpeed.new
-    end
-
-    def self.create_from_logger(vehicle)
-      transport = new
-      transport.vehicle_id = vehicle['vehicleId']
-      # init route and shapes
-      transport.init_data(vehicle).blank?
-      # add position from 'GUP'
-      transport.add_position(vehicle).blank?
-      Config.instance.transport << transport
     end
 
     def init_data(vehicle)
@@ -74,6 +65,28 @@ module Estimate
     def nearest_shape_index
       nearest_shape = shapes.min_by { |shape| GeoMethod.distance([position_last.lat, position_last.lon], [shape.shape_pt_lat, shape.shape_pt_lon]) }
       shapes.index(nearest_shape)
+    end
+
+    def correct_speed
+      return if position_last.calculated
+      speed_was = average_speed.speed
+      nearest_shape_index_by_lp = nearest_shape_index
+      if nearest_shape_index_by_lp < nearest_ep_by_time_now.shape_index # прогноз убежал вперед, большая скорость ТС, нужно корректировать скорость
+        dis = Util.distance_between_shapes(nearest_shape_index_by_lp, nearest_ep_by_time_now.shape_index, shapes)
+        average_speed.correct_minus(dis)
+
+        puts "+++ vehicle_id: #{vehicle_id}, прогноз убежал вперед: #{dis.to_s.yellow}
+              средняя скорость: #{average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
+              #{nearest_shape_index_by_lp}: #{nearest_ep_by_time_now.shape_index}"
+
+      elsif nearest_shape_index_by_lp > nearest_ep_by_time_now.shape_index # прогноз тормозит, маленькая скорость ТС, нужно корректировать скорость
+        dis = Util.distance_between_shapes(nearest_ep_by_time_now.shape_index, nearest_shape_index_by_lp, shapes)
+        average_speed.correct_plus(dis)
+
+        puts "--- vehicle_id: #{vehicle_id}, прогноз тормозит: #{dis.to_s.yellow}
+              средняя скорость: #{average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
+              #{nearest_shape_index_by_lp}: #{nearest_ep_by_time_now.shape_index}"
+      end
     end
 
     private

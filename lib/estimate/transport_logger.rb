@@ -16,7 +16,7 @@ module Estimate
         response = Net::HTTP.get(uri)
         result_json = Oj.load(response)
       rescue StandardError => e
-        Logger.error(e.inspect)
+        Logger.error(e.full_message)
       end
       result_json
     end
@@ -37,14 +37,14 @@ module Estimate
     def processing_data
       puts 'processing_data'
       data = request_data
-      puts Benchmark.measure {
+      puts Benchmark.measure('processing_data') {
         TransportFactory.processing_data(data)
       }
     end
 
     def position_approxymator
       puts 'position_approxymator'
-      puts Benchmark.measure {
+      puts Benchmark.measure('position_approxymator') {
         PositionApproxymator.run(Config.instance.transport)
       }
     end

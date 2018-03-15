@@ -3,8 +3,7 @@ module Estimate
     MAX_TIME_APPROXIMATE = 180
 
     def self.run(transports)
-      transports.delete_if { |t| t.positions.blank? }
-      transports.delete_if { |t| (t.position_last.timestamp + 10.minutes) < Time.now }
+      transports.remove_old
       transports.each { |transport| new.estimate_location_points(transport) }
     end
 
@@ -70,33 +69,14 @@ module Estimate
     end
 
     def next_interaction
-      nearest_ep_by_time_now = @transport.estimated_positions.sort_by { |ep| (ep.timestamp.to_i - Time.now.to_i).abs }.first
-
-      if @last_position.calculated == false
-        nearest_shape_index_by_last_position = @transport.nearest_shape_index
-
-        speed_was = @transport.average_speed.speed
-        if nearest_shape_index_by_last_position < nearest_ep_by_time_now.shape_index # прогноз убежал вперед, большая скорость ТС, нужно корректировать скорость
-          dis = Util.distance_between_shapes(nearest_shape_index_by_last_position, nearest_ep_by_time_now.shape_index, @route_shapes)
-          @transport.average_speed.correct_minus(dis)
-
-          puts "+++ vehicle_id: #{@transport.vehicle_id}, прогноз убежал вперед: #{dis.to_s.yellow}
-                средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
-                #{nearest_shape_index_by_last_position}: #{nearest_ep_by_time_now.shape_index}"
-
-        elsif nearest_shape_index_by_last_position > nearest_ep_by_time_now.shape_index # прогноз тормозит, маленькая скорость ТС, нужно корректировать скорость
-          dis = Util.distance_between_shapes(nearest_ep_by_time_now.shape_index, nearest_shape_index_by_last_position, @route_shapes)
-          @transport.average_speed.correct_plus(dis)
-
-          puts "--- vehicle_id: #{@transport.vehicle_id}, прогноз тормозит: #{dis.to_s.yellow}
-                средняя скорость: #{@transport.average_speed.speed.to_s.red} км/ч (была #{speed_was.to_s.green}),
-                #{nearest_shape_index_by_last_position}: #{nearest_ep_by_time_now.shape_index}"
-        elsif nearest_ep_by_time_now.shape_index == @transport.estimated_positions.first.shape_index
-          return if @transport.estimated_positions.size > 1 && (@transport.estimated_position_last.timestamp.to_i - Time.now.to_i) > 20
-        end
+      nearest_ep_by_time_now = @transport.nearest_ep_by_time_now
+      if nearest_ep_by_time_now.shape_index == @transport.estimated_positions.first.shape_index
+        return if @transport.estimated_positions.not_overdue?
       end
+      @transport.correct_speed
 
-      new_estimated_positions = [nearest_ep_by_time_now]
+      new_estimated_positions = EstimatedPositions.new
+      new_estimated_positions << nearest_ep_by_time_now
       @route_shapes.each_with_index do |sh, index|
         next if nearest_ep_by_time_now.shape_index >= index
         previous_estimated_position = new_estimated_positions.last
@@ -116,6 +96,7 @@ module Estimate
       end
 
       if nearest_ep_by_time_now.shape_index.positive?
+        # add previous position
         pos = @transport.estimated_positions.find { |ep| ep.shape_index == new_estimated_positions.first.shape_index - 1 }
         new_estimated_positions.unshift(pos.clone) if pos.present?
       end
@@ -137,7 +118,7 @@ module Estimate
         json = Oj.dump(hash, mode: :compat)
       rescue ArgumentError => e
         Logger.info(hash)
-        Logger.error(e.inspect)
+        Logger.error(e.full_message)
         return
       else
         Config.instance.redis.setex(key, MAX_TIME_APPROXIMATE, json)
@@ -153,9 +134,7 @@ module Estimate
     end
 
     def estimated_positions_hash
-      @transport.estimated_positions.map do |ep|
-        @transport.as_json.merge(ep.as_json)
-      end
+      @transport.estimated_positions.as_json(@transport.as_json)
     end
   end
 end

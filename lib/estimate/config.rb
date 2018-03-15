@@ -6,7 +6,7 @@ module Estimate
     attr_reader :connection
 
     def initialize
-      @transport = []
+      @transport = Transports.new
       @redis = Redis.new
       @connection = PG.connect(ENV['DATABASE_URL'])
     end
