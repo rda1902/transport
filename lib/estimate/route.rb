@@ -22,6 +22,7 @@ module Estimate
 
     def self.find(route_id)
       Config.instance.connection.exec_params('SELECT * FROM gtfs_routes where route_id = $1 LIMIT 1', [route_id]) do |result|
+        return nil if result.first.blank?
         row = result.first
         return new(route_id: row['route_id'],
                    short_name: row['short_name'],
