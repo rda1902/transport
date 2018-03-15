@@ -27,6 +27,12 @@ module Estimate
           shape_dist_traveled: row['shape_dist_traveled'])
     end
 
+    def self.find_all!(route_id, direction_id)
+      shapes = find_all(route_id, direction_id)
+      raise ShapesNotFound, "route_id: #{route_id}, direction_id: #{direction_id}" if shapes.blank?
+      shapes
+    end
+
     def self.find_all(route_id, direction_id)
       shape_id = find_shape_id(route_id, direction_id)
       return nil if shape_id.blank?

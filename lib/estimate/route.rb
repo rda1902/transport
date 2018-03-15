@@ -14,6 +14,12 @@ module Estimate
       @transport_type = args[:transport_type]
     end
 
+    def self.find!(route_id)
+      route = find(route_id)
+      raise RouteNotFound, "route_id: #{vehicle['routeId']}" if route.blank?
+      route
+    end
+
     def self.find(route_id)
       Config.instance.connection.exec_params('SELECT * FROM gtfs_routes where route_id = $1 LIMIT 1', [route_id]) do |result|
         row = result.first

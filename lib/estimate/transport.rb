@@ -22,10 +22,8 @@ module Estimate
     def init_data(vehicle)
       @estimated_positions.clear
       @direction_id = vehicle['directionId']
-      @route = Route.find(vehicle['routeId'])
-      raise RouteNotFound, "vehicle: #{vehicle}, route_id: #{vehicle['routeId']}" if @route.blank?
-      @shapes = Shape.find_all(vehicle['routeId'], vehicle['directionId'])
-      raise ShapesNotFound, "vehicle: #{vehicle}" if @shapes.blank?
+      @route = Route.find!(vehicle['routeId'])
+      @shapes = Shape.find_all!(vehicle['routeId'], vehicle['directionId'])
       self
     end
 
