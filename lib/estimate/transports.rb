@@ -1,6 +1,10 @@
 module Estimate
-  class Transports < Array
+  class Transports < SimpleDelegator
     MAX_TIME_REFRESH = 10.minutes
+
+    def initialize
+      super([])
+    end
 
     def remove_old
       delete_if { |t| t.positions.blank? }

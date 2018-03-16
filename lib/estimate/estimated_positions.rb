@@ -1,5 +1,9 @@
 module Estimate
-  class EstimatedPositions < Array
+  class EstimatedPositions < SimpleDelegator
+    def initialize
+      super([])
+    end
+
     def nearest_ep_by_time_now
       sort_by { |ep| (ep.timestamp.to_i - Time.now.to_i).abs }.first
     end

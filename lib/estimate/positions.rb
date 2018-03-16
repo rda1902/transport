@@ -1,3 +1,7 @@
 module Estimate
-  class Positions < Array; end
+  class Positions < SimpleDelegator
+    def initialize
+      super([])
+    end
+  end
 end

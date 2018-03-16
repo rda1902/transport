@@ -7,7 +7,7 @@ module Estimate
 
     def initialize
       @transport = Transports.new
-      @redis = Redis.new
+      @redis = Redis.new(db: 1)
       @connection = PG.connect(ENV['DATABASE_URL'])
     end
   end
